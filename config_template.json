@@ -1,0 +1,12 @@
+{
+    "subdomains": [
+        "domain1.your.domain",
+        "domain2.your.domain"
+    ],
+    "config": {
+        "api_key": "Your API key for the zone",
+        "zone_id": "Your Zone ID",
+        "check_interval": 300,
+        "discord_webhook": "Put a discord webhook link here or leave it blank to disable the feature"
+    }
+}
