@@ -1,6 +1,6 @@
 # CF-DDNS
 
-A simple "quick and dirty" DNS record updater for people with a Dynamic IP who use Cloudflare.
+A simple "set up once and forget" DNS record updater for people with a Dynamic IP who use Cloudflare.
 
 Written semi-minimally in Python.
 
@@ -10,12 +10,24 @@ Written semi-minimally in Python.
     -   Does not update other info (such as the proxy toggle or record type), allowing you to do that from the dashboard
 -   Low performance footprint (As far as I know)
 -   Uses the official Cloudflare API library
--   Simple JSON configuration to hold all data
-    -   Subdomains
+-   Simple JSON configuration to hold data
     -   Cloudflare API details
     -   Checking interval
 -   Supports addition of Discord Webhook which provides summaries if records are changed
--   Does not send excessive API requests (only updates on first launch or when IP changes)
+-   Does not send excessive API requests (only updates specific records on IP change)
+
+## Work in Progress
+
+-   [ ] Better installation method
+-   [ ] Publishing to Docker hub(?)
+
+## How it works
+
+1. When the program is first started, it keeps a record of your current IP address and stores it locally. (The IP is then read from the storage from then on.)
+2. Every `x` minutes, the program checks your machine's IP address again, and compares it to the stored IP.
+3. If the IPs are different, the Cloudflare API is used to search your records that point to the stored IP.
+4. Those records are then edited to reflect your new IP address.
+5. (Optional) you get a nifty discord message telling you what happened.
 
 ## Installation
 
@@ -31,33 +43,29 @@ git clone https://github.com/thebenb/CF-DDNS.git
 
 ### 2. Configure
 
-Copy (or rename) the `config_tempalte.json` to `config.json` and edit file to match your credentials. At a bare minimum, your config should look like this:
+Copy (or rename) the `config_template.json` to `config.json` and edit file to match your credentials. At a bare minimum, your config should look like this:
 
 ```json
 {
-    "subdomains": ["something.example.com"],
     "config": {
         "api_key": "Your API key for the zone",
         "zone_id": "Your Zone ID",
         "check_interval": 300,
-        "discord_webhook": ""
+        "discord_webhook": "Put a discord webhook link here or leave it blank to disable the feature"
     }
 }
 ```
 
-_`discord_webhook`_ is left blank, meaning that no discord notification will be sent
-
-For those not familiar with JSON: Each subdomain needs to be in quotations and with a comma inbetween them.
+If `discord_webhook` is left blank, meaning that no discord notification will be sent
 
 ### 3. Run
 
-Assuming you have `docker-compose` installed, just run:
+Assuming you have `docker` installed, just run:
 
 ```bash
-docker-compose up -d
+docker build -t cf-ddns .
+docker run --restart always cf-ddns
 ```
-
-Every time you update the `config.json`
 
 Enjoy!
 

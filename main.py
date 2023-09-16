@@ -9,11 +9,9 @@ def load_config():
     with open("config.json", "r") as config_file:
         config = json.load(config_file)
 
-    # Access subdomains and general configuration
-    subdomains = config.get("subdomains", [])
     config = config.get("config", {})
 
-    return subdomains, config
+    return config
 
 
 def get_ip():
@@ -39,14 +37,33 @@ def send_notification(discord_webhook, summary_data):
     response = requests.post(discord_webhook, data=message_json, headers=headers)
 
 
-def api(api_key, subdomain, new_ip, zone_id):
-    cf = CloudFlare.CloudFlare(token=api_key)
+def find_subdomains(cf, stored_ip, zone_id):
+    # Fetch all DNS records for the specified zone
+    try:
+        dns_records = cf.zones.dns_records.get(zone_id)
+    except CloudFlare.exceptions.CloudFlareAPIError as e:
+        print(f"Error fetching DNS records: {e}")
+        exit(1)
 
+    # Find subdomains with the target IP
+    matching_subdomains = [
+        record["name"] for record in dns_records if record["content"] == stored_ip
+    ]
+
+    # Print the matching subdomains
+    print(f"Subdomains with IP {stored_ip}:")
+    for subdomain in matching_subdomains:
+        print(subdomain)
+
+    return matching_subdomains
+
+
+def set_ip(cf, subdomain, new_ip, zone_id):
     # Get the DNS records for the specified zone
     dns_records = cf.zones.dns_records.get(zone_id)
 
     for record in dns_records:
-        if record["name"] == subdomain and record["type"] == "A":
+        if record["name"] == subdomain:
             record_to_update = record
             break
 
@@ -61,7 +78,7 @@ def api(api_key, subdomain, new_ip, zone_id):
         )
 
         print("Updated Record: " + subdomain)
-        return f"Successfully updated {subdomain}"
+        return f"Successfully updated `{subdomain}`"
 
     except CloudFlare.exceptions.CloudFlareAPIError as e:
         error = f"Error updating {subdomain}: {e}"
@@ -70,15 +87,21 @@ def api(api_key, subdomain, new_ip, zone_id):
 
 
 def main():
-    subdomains, config = load_config()
+    config = load_config()
     api_key = config.get("api_key")
     zone_id = config.get("zone_id")
     discord_webhook = config.get("discord_webhook")
 
-    stored_ip = ""
     current_ip = get_ip()
 
-    count = len(subdomains)
+    try:
+        with open("ip.txt", "r") as file:
+            stored_ip = file.read()
+    except:
+        stored_ip = current_ip
+
+    with open("ip.txt", "w") as file:
+        file.write(current_ip)
 
     summary_data = [current_ip]
 
@@ -86,14 +109,12 @@ def main():
         t = time.localtime()
         current_time = time.strftime("%H:%M:%S", t)
         if current_ip != stored_ip:
-            if stored_ip != "":
-                print(
-                    f"{current_time} - IP changed from {stored_ip} to {current_ip}, updating {count} records"
-                )
-            else:
-                print(f"Setting IP to {current_ip} for {count} records")
+            cf = CloudFlare.CloudFlare(token=api_key)
+
+            subdomains = find_subdomains(cf, stored_ip, zone_id)
+
             for subdomain in subdomains:
-                result = api(api_key, subdomain, current_ip, zone_id)
+                result = set_ip(cf, subdomain, current_ip, zone_id)
 
                 summary_data.append(result)
 

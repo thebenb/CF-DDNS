@@ -1,9 +1,14 @@
+# Use an official Python runtime as a parent image
 FROM python:3.9
 
+# Set the working directory to /app
 WORKDIR /app
 
+# Copy the current directory contents into the container at /app
 COPY . /app
 
-RUN pip install -r requirements.txt
+# Install any needed packages specified in requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-CMD ["python", "main.py"]
+# Run main.py when the container launches
+CMD ["python","-U", "main.py"]
